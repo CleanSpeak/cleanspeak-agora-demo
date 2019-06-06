@@ -33,4 +33,6 @@ int main(int argc, char** argv) {
 	}
 
 	engine->release();
+
+	return 0;
 }

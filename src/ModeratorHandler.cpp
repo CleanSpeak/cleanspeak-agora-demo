@@ -8,10 +8,31 @@
 #include <sstream>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
+#include <sstream>
 
 #include "IAgoraLinuxSdkCommon.h"
 #include "ModeratorHandler.h"
 #include "base64.h"
+
+std::ostream& operator<<(std::ostream& out, const agora::linuxsdk::STAT_CODE_TYPE value){
+	const char* s = 0;
+#define PROCESS_VAL(p) case(p): s = #p; break;
+	switch(value){
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_OK);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_FROM_ENGINE);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_ARS_JOIN_CHANNEL);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_CREATE_PROCESS);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_MIXED_INVALID_VIDEO_PARAM);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_NULL_POINTER);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_PROXY_SERVER_INVALID_PARAM);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_ERR);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_HANG_UP);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_NVAL);
+	}
+#undef PROCESS_VAL
+
+	return out << s;
+}
 
 void ModeratorHandler::onAudioVolumeIndication(const agora::linuxsdk::AudioVolumeInfo speakers[],
                                                unsigned int speakerNum) {
@@ -28,6 +49,7 @@ void ModeratorHandler::onAudioVolumeIndication(const agora::linuxsdk::AudioVolum
 }
 
 void ModeratorHandler::onError(int error, agora::linuxsdk::STAT_CODE_TYPE stat_code) {
+	std::cerr << "Received error from agora [" << stat_code << "] Stopping..." << std::endl;
 	stopped = true;
 }
 
@@ -40,6 +62,7 @@ void ModeratorHandler::onJoinChannelSuccess(const char* channelId, uid_t uid) {
 }
 
 void ModeratorHandler::onLeaveChannel(agora::linuxsdk::LEAVE_PATH_CODE code) {
+	std::cerr << "Left the channel! Code [" << code << "}. Stopping..." << std::endl;
 	stopped = true;
 }
 
@@ -115,13 +138,31 @@ void ModeratorHandler::audioFrameReceived(unsigned int uid, const agora::linuxsd
 		curl_easy_setopt(curl, CURLOPT_URL, "URL"); //TODO
 		curl_easy_setopt(curl, CURLOPT_HTTPPOST, 1);
 
+		std::stringbuf responseBody;
+		std::stringbuf body(request);
+
+		// Handles the request body
 		curl_easy_setopt(curl, CURLOPT_READFUNCTION, [&](char* ptr, size_t size, size_t nitems, void* userdata) {
-			// TODO
+            return body.sgetn(ptr, nitems);
 		});
+		// Handles the response body
 		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, [&](char* ptr, size_t size, size_t nmemb, void* userdata) {
-			// TODO
+			responseBody.sputn(ptr, nmemb);
+			return size * nmemb;
 		});
+
 		CURLcode res = curl_easy_perform(curl);
+
+		if (res == CURLE_OK) {
+		    long http_code = 0;
+		    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
+		    if (http_code != 200) {
+		        std::cerr << "Something has gone wrong with the request! (HTTP CODE) [" << http_code << "]" << std::endl
+		        << "Body [" << responseBody.str() << "]" << std::endl;
+		    }
+		} else {
+		    std::cerr << "Something went wrong during the request! (CURL ERROR)" << std::endl;
+		}
 	}
 
 	curl_slist_free_all(headers);

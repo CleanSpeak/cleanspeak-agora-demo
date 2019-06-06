@@ -13,16 +13,13 @@
 
 class ModeratorHandler: public agora::recording::IRecordingEngineEventHandler{
 private:
-	std::atomic_bool stopped;
+	std::atomic<bool> stopped = ATOMIC_VAR_INIT(false);
 
 	std::unordered_map<uid_t, int> active_users;
 
 	std::unordered_map<uid_t, char*> previous_frame;
 
 public:
-
-	ModeratorHandler(): stopped(false) {
-	}
 
 	bool isStopped() const {
 		return stopped;
@@ -59,6 +56,5 @@ public:
 
 	virtual void onConnectionInterrupted() override;
 };
-
 
 #endif //AGORA_CLEANSPEAK_MODERATORHANDLER_H
