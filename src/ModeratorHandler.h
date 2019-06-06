@@ -21,6 +21,10 @@ private:
 
 public:
 
+	ModeratorHandler();
+
+	~ModeratorHandler();
+
 	bool isStopped() const {
 		return stopped;
 	}
@@ -40,9 +44,9 @@ public:
 
 	virtual void onUserOffline(uid_t uid, agora::linuxsdk::USER_OFFLINE_REASON_TYPE reason) override;
 
-	virtual void audioFrameReceived(unsigned int uid, const agora::linuxsdk::AudioFrame* frame) const override;
+	virtual void audioFrameReceived(uid_t uid, const agora::linuxsdk::AudioFrame* frame) const override;
 
-	virtual void videoFrameReceived(unsigned int uid, const agora::linuxsdk::VideoFrame* frame) const override;
+	virtual void videoFrameReceived(uid_t uid, const agora::linuxsdk::VideoFrame* frame) const override;
 
 	virtual void onActiveSpeaker(uid_t uid) override;
 

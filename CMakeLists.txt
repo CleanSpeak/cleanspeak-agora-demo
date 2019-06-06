@@ -5,6 +5,6 @@ set(CMAKE_CXX_STANDARD 17)
 
 add_executable(AgoraAutoModerator src/main.cpp src/ModeratorHandler.cpp)
 
-target_link_directories(AgoraAutoModerator PUBLIC libs)
+target_link_directories(AgoraAutoModerator PUBLIC libs SYSTEM /usr/local/lib)
 target_link_libraries(AgoraAutoModerator librecorder.a pthread curl)
-target_include_directories(AgoraAutoModerator PUBLIC include)
+target_include_directories(AgoraAutoModerator PUBLIC include SYSTEM /usr/local/include)

@@ -18,16 +18,31 @@ std::ostream& operator<<(std::ostream& out, const agora::linuxsdk::STAT_CODE_TYP
 	const char* s = 0;
 #define PROCESS_VAL(p) case(p): s = #p; break;
 	switch(value){
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_OK);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_FROM_ENGINE);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_ARS_JOIN_CHANNEL);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_CREATE_PROCESS);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_MIXED_INVALID_VIDEO_PARAM);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_NULL_POINTER);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_PROXY_SERVER_INVALID_PARAM);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_ERR);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_HANG_UP);
-		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_NVAL);
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_OK)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_FROM_ENGINE)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_ARS_JOIN_CHANNEL)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_CREATE_PROCESS)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_MIXED_INVALID_VIDEO_PARAM)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_NULL_POINTER)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_ERR_PROXY_SERVER_INVALID_PARAM)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_ERR)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_HANG_UP)
+		PROCESS_VAL(agora::linuxsdk::STAT_CODE_TYPE::STAT_POLL_NVAL)
+	}
+#undef PROCESS_VAL
+
+	return out << s;
+}
+
+std::ostream &operator<<(std::ostream &out, const agora::linuxsdk::LEAVE_PATH_CODE value) {
+	const char* s = 0;
+#define PROCESS_VAL(p) case(p): s = #p; break;
+	switch (value) {
+		PROCESS_VAL(agora::linuxsdk::LEAVE_PATH_CODE::LEAVE_CODE_INIT)
+		PROCESS_VAL(agora::linuxsdk::LEAVE_PATH_CODE::LEAVE_CODE_SIG)
+		PROCESS_VAL(agora::linuxsdk::LEAVE_PATH_CODE::LEAVE_CODE_NO_USERS)
+		PROCESS_VAL(agora::linuxsdk::LEAVE_PATH_CODE::LEAVE_CODE_TIMER_CATCH)
+		PROCESS_VAL(agora::linuxsdk::LEAVE_PATH_CODE::LEAVE_CODE_CLIENT_LEAVE)
 	}
 #undef PROCESS_VAL
 
@@ -49,7 +64,8 @@ void ModeratorHandler::onAudioVolumeIndication(const agora::linuxsdk::AudioVolum
 }
 
 void ModeratorHandler::onError(int error, agora::linuxsdk::STAT_CODE_TYPE stat_code) {
-	std::cerr << "Received error from agora [" << stat_code << "] Stopping..." << std::endl;
+	std::cerr << "Received error from Agora [" << stat_code << "] Stopping..." << std::endl;
+	std::cerr.flush();
 	stopped = true;
 }
 
@@ -62,12 +78,13 @@ void ModeratorHandler::onJoinChannelSuccess(const char* channelId, uid_t uid) {
 }
 
 void ModeratorHandler::onLeaveChannel(agora::linuxsdk::LEAVE_PATH_CODE code) {
-	std::cerr << "Left the channel! Code [" << code << "}. Stopping..." << std::endl;
+	std::cerr << "Left the channel! Code [" << code << "]. Stopping..." << std::endl;
+	std::cerr.flush();
 	stopped = true;
 }
 
 void ModeratorHandler::onUserJoined(uid_t uid, agora::linuxsdk::UserJoinInfos &infos) {
-	// noop
+	active_users[uid] = 0;
 }
 
 void ModeratorHandler::onUserOffline(uid_t uid, agora::linuxsdk::USER_OFFLINE_REASON_TYPE reason) {
@@ -79,16 +96,25 @@ boost::uuids::uuid fromInt(uid_t i) {
 	boost::uuids::uuid uuid = {{0}};
 
 	// Push the user id into the uuid (lower 1/4th)
-	*(uuid.begin() + 0) = static_cast<uint8_t>(i >> 24) & 0xFF;
-	*(uuid.begin() + 1) = static_cast<uint8_t>(i >> 16) & 0xFF;
-	*(uuid.begin() + 2) = static_cast<uint8_t>(i >> 8) & 0xFF;
-	*(uuid.begin() + 3) = static_cast<uint8_t>(i >> 0) & 0xFF;
+	*(uuid.begin() + 12) = static_cast<uint8_t>(i >> 24) & 0xFF;
+	*(uuid.begin() + 13) = static_cast<uint8_t>(i >> 16) & 0xFF;
+	*(uuid.begin() + 14) = static_cast<uint8_t>(i >> 8) & 0xFF;
+	*(uuid.begin() + 15) = static_cast<uint8_t>(i >> 0) & 0xFF;
 }
 
-void ModeratorHandler::audioFrameReceived(unsigned int uid, const agora::linuxsdk::AudioFrame* frame) const {
+static size_t requestBodyHandler(char* ptr, size_t size, size_t nitems, std::stringbuf* body) {
+	return body->sgetn(ptr, nitems);
+}
+
+static size_t responseBodyHandler(char* ptr, size_t size, size_t nmemb, std::stringbuf* responseBody) {
+	responseBody->sputn(ptr, nmemb);
+	return size * nmemb;
+}
+
+void ModeratorHandler::audioFrameReceived(uid_t uid, const agora::linuxsdk::AudioFrame* frame) const {
 	// TODO Handle tracking of frames and deciding when a user is active. Then send the data to cleanspeak if they are
 
-	if (active_users.at(uid) == 0) {
+	if (active_users.find(uid) != active_users.end() && active_users.at(uid) == 0) {
 		return; // This user hasn't talked recently enough to care.
 	}
 
@@ -104,14 +130,14 @@ void ModeratorHandler::audioFrameReceived(unsigned int uid, const agora::linuxsd
 	// Alternatively we could use the name_generator but its a hash, and we would lose the obviousness of the user id.
 	std::string userId = to_string(fromInt(uid));
 
-	std::string applicationId = "APPLICATION_ID";
+	std::string applicationId = "c88755c8-7789-4b28-8f0d-180088772e55";
 
 	// language=JSON
 	std::string request =
 			R"(
 {
   "content": {
-    "applicationId": "",
+    "applicationId": ")" + applicationId + R"(",
     "createInstant": )" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) + R"(,
     "location": "channel 1000",
     "parts": [
@@ -126,30 +152,32 @@ void ModeratorHandler::audioFrameReceived(unsigned int uid, const agora::linuxsd
 }
 )";
 
-	CURL* curl;
-	curl_slist* headers;
+	CURL* curl = nullptr;
+	curl_slist* headers = nullptr;
 	headers = curl_slist_append(headers, "Content-Type: application/json");
-	headers = curl_slist_append(headers, "Authorization: API_KEY"); // TODO
+	headers = curl_slist_append(headers, "Authorization: 2S-Wx_U-VgfTRhzYmav_hHna54YqdgHERB9T3vvzV28");
 
 	curl = curl_easy_init();
 
 	if (curl) {
-		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-		curl_easy_setopt(curl, CURLOPT_URL, "URL"); //TODO
-		curl_easy_setopt(curl, CURLOPT_HTTPPOST, 1);
+
+		CURLcode code;
+
+//		code = curl_easy_setopt(curl, CURLOPT_VERBOSE, true);
+
+		code = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		code = curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:8001/content/item/moderate");
+		code = curl_easy_setopt(curl, CURLOPT_POST, true);
 
 		std::stringbuf responseBody;
 		std::stringbuf body(request);
 
 		// Handles the request body
-		curl_easy_setopt(curl, CURLOPT_READFUNCTION, [&](char* ptr, size_t size, size_t nitems, void* userdata) {
-            return body.sgetn(ptr, nitems);
-		});
+		code = curl_easy_setopt(curl, CURLOPT_READDATA, &body);
+		code = curl_easy_setopt(curl, CURLOPT_READFUNCTION, requestBodyHandler);
 		// Handles the response body
-		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, [&](char* ptr, size_t size, size_t nmemb, void* userdata) {
-			responseBody.sputn(ptr, nmemb);
-			return size * nmemb;
-		});
+		code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBody);
+		code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, responseBodyHandler);
 
 		CURLcode res = curl_easy_perform(curl);
 
@@ -166,9 +194,10 @@ void ModeratorHandler::audioFrameReceived(unsigned int uid, const agora::linuxsd
 	}
 
 	curl_slist_free_all(headers);
+	curl_easy_cleanup(curl);
 }
 
-void ModeratorHandler::videoFrameReceived(unsigned int uid, const agora::linuxsdk::VideoFrame* frame) const {
+void ModeratorHandler::videoFrameReceived(uid_t uid, const agora::linuxsdk::VideoFrame* frame) const {
 	// noop
 }
 
@@ -201,4 +230,12 @@ void ModeratorHandler::onConnectionLost() {
 void ModeratorHandler::onConnectionInterrupted() {
 	std::cout << "Connection interrupted" << std::endl;
 	// Should we exit?
+}
+
+ModeratorHandler::ModeratorHandler() {
+	curl_global_init(CURL_GLOBAL_DEFAULT);
+}
+
+ModeratorHandler::~ModeratorHandler() {
+	curl_global_cleanup();
 }
