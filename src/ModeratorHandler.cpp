@@ -6,13 +6,25 @@
 #include <iostream>
 #include <chrono>
 #include <sstream>
+#include <streambuf>
 #include <boost/uuid/uuid.hpp>
 #include <boost/uuid/uuid_io.hpp>
 #include <sstream>
+#include <IAgoraLinuxSdkCommon.h>
 
 #include "IAgoraLinuxSdkCommon.h"
 #include "ModeratorHandler.h"
 #include "base64.h"
+
+struct UserData {
+//	int activeThreshold = 0;
+
+	std::basic_stringbuf<unsigned char> buffer;
+
+	int bufferFrames = 0;
+};
+
+std::unordered_map<uid_t, UserData> users;
 
 std::ostream& operator<<(std::ostream& out, const agora::linuxsdk::STAT_CODE_TYPE value){
 	const char* s = 0;
@@ -52,15 +64,15 @@ std::ostream &operator<<(std::ostream &out, const agora::linuxsdk::LEAVE_PATH_CO
 void ModeratorHandler::onAudioVolumeIndication(const agora::linuxsdk::AudioVolumeInfo speakers[],
                                                unsigned int speakerNum) {
 
-	for(int i = 0; i < speakerNum; ++i) {
-		active_users[speakers[i].uid] = 3;
-	}
-
-	for(auto& user: active_users) {
-		if (user.second != 0) {
-			user.second--;
-		}
-	}
+//	for(int i = 0; i < speakerNum; ++i) {
+//		users[speakers[i].uid].activeThreshold = 3;
+//	}
+//
+//	for(auto& user: users) {
+//		if (user.second.activeThreshold != 0) {
+//			user.second.activeThreshold--;
+//		}
+//	}
 }
 
 void ModeratorHandler::onError(int error, agora::linuxsdk::STAT_CODE_TYPE stat_code) {
@@ -84,12 +96,11 @@ void ModeratorHandler::onLeaveChannel(agora::linuxsdk::LEAVE_PATH_CODE code) {
 }
 
 void ModeratorHandler::onUserJoined(uid_t uid, agora::linuxsdk::UserJoinInfos &infos) {
-	active_users[uid] = 0;
+	users[uid] = UserData();
 }
 
 void ModeratorHandler::onUserOffline(uid_t uid, agora::linuxsdk::USER_OFFLINE_REASON_TYPE reason) {
-	active_users.erase(uid);
-	previous_frame.erase(uid);
+	users.erase(uid);
 }
 
 boost::uuids::uuid fromInt(uid_t i) {
@@ -114,18 +125,26 @@ static size_t responseBodyHandler(char* ptr, size_t size, size_t nmemb, std::str
 void ModeratorHandler::audioFrameReceived(uid_t uid, const agora::linuxsdk::AudioFrame* frame) const {
 	// TODO Handle tracking of frames and deciding when a user is active. Then send the data to cleanspeak if they are
 
-	if (active_users.find(uid) != active_users.end() && active_users.at(uid) == 0) {
-		return; // This user hasn't talked recently enough to care.
-	}
+//	if (users.find(uid) != users.end() && users.at(uid).activeThreshold == 0) {
+//		return; // This user hasn't talked recently enough to care.
+//	}
 
 	if (frame->type != agora::linuxsdk::AUDIO_FRAME_TYPE::AUDIO_FRAME_AAC) {
 		std::cerr << "Unexpected pcm frame!" << std::endl;
 		return;
 	}
 
-	agora::linuxsdk::AudioAacFrame* aacFrame = frame->frame.aac;
+	UserData &userData = users[uid];
+	userData.bufferFrames++;
+	userData.buffer.sputn(frame->frame.aac->aacBuf_, frame->frame.aac->aacBufSize_);
 
-	std::string audioUrl = "data:audio/aac;base64," + base64_encode(aacFrame->aacBuf_, aacFrame->aacBufSize_);
+	if (userData.bufferFrames < 250) {
+		return;
+	}
+
+	std::basic_string buf = userData.buffer.str();
+
+	std::string audioUrl = "data:audio/aac;base64," + base64_encode(buf.c_str(), userData.buffer.in_avail());
 
 	// Alternatively we could use the name_generator but its a hash, and we would lose the obviousness of the user id.
 	std::string userId = to_string(fromInt(uid));
@@ -203,7 +222,7 @@ void ModeratorHandler::videoFrameReceived(uid_t uid, const agora::linuxsdk::Vide
 }
 
 void ModeratorHandler::onActiveSpeaker(uid_t uid) {
-	active_users[uid] = true;
+//	users[uid] = true;
 }
 
 void ModeratorHandler::onFirstRemoteVideoDecoded(uid_t uid, int width, int height, int elapsed) {
