@@ -125,7 +125,7 @@ void ModeratorHandler::audioFrameReceived(uid_t uid, const agora::linuxsdk::Audi
 
 	agora::linuxsdk::AudioAacFrame* aacFrame = frame->frame.aac;
 
-	std::string audioUrl = "data:audio/aac;base64," + b64encode(aacFrame->aacBuf_, aacFrame->aacBufSize_);
+	std::string audioUrl = "data:audio/aac;base64," + base64_encode(aacFrame->aacBuf_, aacFrame->aacBufSize_);
 
 	// Alternatively we could use the name_generator but its a hash, and we would lose the obviousness of the user id.
 	std::string userId = to_string(fromInt(uid));
@@ -155,6 +155,7 @@ void ModeratorHandler::audioFrameReceived(uid_t uid, const agora::linuxsdk::Audi
 	CURL* curl = nullptr;
 	curl_slist* headers = nullptr;
 	headers = curl_slist_append(headers, "Content-Type: application/json");
+	headers = curl_slist_append(headers, ("Content-Length: " + std::to_string(request.length())).c_str());
 	headers = curl_slist_append(headers, "Authorization: 2S-Wx_U-VgfTRhzYmav_hHna54YqdgHERB9T3vvzV28");
 
 	curl = curl_easy_init();
