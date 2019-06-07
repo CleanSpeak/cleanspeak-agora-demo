@@ -19,10 +19,6 @@ private:
 
 public:
 
-	ModeratorHandler();
-
-	~ModeratorHandler();
-
 	bool isStopped() const {
 		return stopped;
 	}

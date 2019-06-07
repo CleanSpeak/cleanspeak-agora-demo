@@ -3,8 +3,10 @@ project(agora_cleanspeak)
 
 set(CMAKE_CXX_STANDARD 17)
 
-add_executable(AgoraAutoModerator src/main.cpp src/ModeratorHandler.cpp)
+#set(CMAKE_VERBOSE_MAKEFILE ON)
 
-target_link_directories(AgoraAutoModerator PUBLIC libs SYSTEM /usr/local/lib)
+add_executable(AgoraAutoModerator src/main.cpp src/ModeratorHandler.cpp src/AudioContainer.cpp src/CleanSpeakAudioModerationUtil.cpp)
+
+target_link_directories(AgoraAutoModerator PUBLIC libs)
 target_link_libraries(AgoraAutoModerator librecorder.a pthread curl)
-target_include_directories(AgoraAutoModerator PUBLIC include SYSTEM /usr/local/include)
+target_include_directories(AgoraAutoModerator PUBLIC include)

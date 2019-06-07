@@ -18,7 +18,7 @@ int main(int argc, char** argv) {
 
 	config.isAudioOnly = true;
 	config.isMixingEnabled = false;
-	config.decodeAudio = agora::linuxsdk::AUDIO_FORMAT_TYPE::AUDIO_FORMAT_AAC_FRAME_TYPE;
+	config.decodeAudio = agora::linuxsdk::AUDIO_FORMAT_TYPE::AUDIO_FORMAT_PCM_FRAME_TYPE;
 	config.captureInterval = 5;
 	config.audioIndicationInterval = 250;
 	config.idleLimitSec = 3;
@@ -37,7 +37,7 @@ int main(int argc, char** argv) {
 
 	engine->release();
 
-	this_thread::sleep_for(100ms);
+	this_thread::sleep_for(1s);
 
 	return 0;
 }

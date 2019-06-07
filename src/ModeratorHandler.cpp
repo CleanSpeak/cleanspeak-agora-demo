@@ -2,29 +2,14 @@
 // Created by Tyler Scott on 2019-06-05.
 //
 
-#include <curl/curl.h>
 #include <iostream>
-#include <chrono>
-#include <sstream>
-#include <streambuf>
-#include <boost/uuid/uuid.hpp>
-#include <boost/uuid/uuid_io.hpp>
-#include <sstream>
-#include <IAgoraLinuxSdkCommon.h>
 
 #include "IAgoraLinuxSdkCommon.h"
 #include "ModeratorHandler.h"
-#include "base64.h"
+#include "CleanSpeakAudioModerationUtil.h"
 
-struct UserData {
-//	int activeThreshold = 0;
-
-	std::basic_stringbuf<unsigned char> buffer;
-
-	int bufferFrames = 0;
-};
-
-std::unordered_map<uid_t, UserData> users;
+// This is created in a static context because the recording api prevents internal fields from being modified when frames arrive... (const)
+static CleanSpeakAudioModerationUtil moderationUtil;
 
 std::ostream& operator<<(std::ostream& out, const agora::linuxsdk::STAT_CODE_TYPE value){
 	const char* s = 0;
@@ -96,125 +81,15 @@ void ModeratorHandler::onLeaveChannel(agora::linuxsdk::LEAVE_PATH_CODE code) {
 }
 
 void ModeratorHandler::onUserJoined(uid_t uid, agora::linuxsdk::UserJoinInfos &infos) {
-	users[uid] = UserData();
+	moderationUtil.addUser(uid);
 }
 
 void ModeratorHandler::onUserOffline(uid_t uid, agora::linuxsdk::USER_OFFLINE_REASON_TYPE reason) {
-	users.erase(uid);
-}
-
-boost::uuids::uuid fromInt(uid_t i) {
-	boost::uuids::uuid uuid = {{0}};
-
-	// Push the user id into the uuid (lower 1/4th)
-	*(uuid.begin() + 12) = static_cast<uint8_t>(i >> 24) & 0xFF;
-	*(uuid.begin() + 13) = static_cast<uint8_t>(i >> 16) & 0xFF;
-	*(uuid.begin() + 14) = static_cast<uint8_t>(i >> 8) & 0xFF;
-	*(uuid.begin() + 15) = static_cast<uint8_t>(i >> 0) & 0xFF;
-}
-
-static size_t requestBodyHandler(char* ptr, size_t size, size_t nitems, std::stringbuf* body) {
-	return body->sgetn(ptr, nitems);
-}
-
-static size_t responseBodyHandler(char* ptr, size_t size, size_t nmemb, std::stringbuf* responseBody) {
-	responseBody->sputn(ptr, nmemb);
-	return size * nmemb;
+	moderationUtil.removeUser(uid);
 }
 
 void ModeratorHandler::audioFrameReceived(uid_t uid, const agora::linuxsdk::AudioFrame* frame) const {
-	// TODO Handle tracking of frames and deciding when a user is active. Then send the data to cleanspeak if they are
-
-//	if (users.find(uid) != users.end() && users.at(uid).activeThreshold == 0) {
-//		return; // This user hasn't talked recently enough to care.
-//	}
-
-	if (frame->type != agora::linuxsdk::AUDIO_FRAME_TYPE::AUDIO_FRAME_AAC) {
-		std::cerr << "Unexpected pcm frame!" << std::endl;
-		return;
-	}
-
-	UserData &userData = users[uid];
-	userData.bufferFrames++;
-	userData.buffer.sputn(frame->frame.aac->aacBuf_, frame->frame.aac->aacBufSize_);
-
-	if (userData.bufferFrames < 250) {
-		return;
-	}
-
-	std::basic_string buf = userData.buffer.str();
-
-	std::string audioUrl = "data:audio/aac;base64," + base64_encode(buf.c_str(), userData.buffer.in_avail());
-
-	// Alternatively we could use the name_generator but its a hash, and we would lose the obviousness of the user id.
-	std::string userId = to_string(fromInt(uid));
-
-	std::string applicationId = "c88755c8-7789-4b28-8f0d-180088772e55";
-
-	// language=JSON
-	std::string request =
-			R"(
-{
-  "content": {
-    "applicationId": ")" + applicationId + R"(",
-    "createInstant": )" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count()) + R"(,
-    "location": "channel 1000",
-    "parts": [
-      {
-        "content": ")" + audioUrl + R"(",
-        "name": "audio",
-        "type": "audio"
-      }
-    ],
-    "senderId": ")" + userId + R"("
-  }
-}
-)";
-
-	CURL* curl = nullptr;
-	curl_slist* headers = nullptr;
-	headers = curl_slist_append(headers, "Content-Type: application/json");
-	headers = curl_slist_append(headers, ("Content-Length: " + std::to_string(request.length())).c_str());
-	headers = curl_slist_append(headers, "Authorization: 2S-Wx_U-VgfTRhzYmav_hHna54YqdgHERB9T3vvzV28");
-
-	curl = curl_easy_init();
-
-	if (curl) {
-
-		CURLcode code;
-
-//		code = curl_easy_setopt(curl, CURLOPT_VERBOSE, true);
-
-		code = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-		code = curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:8001/content/item/moderate");
-		code = curl_easy_setopt(curl, CURLOPT_POST, true);
-
-		std::stringbuf responseBody;
-		std::stringbuf body(request);
-
-		// Handles the request body
-		code = curl_easy_setopt(curl, CURLOPT_READDATA, &body);
-		code = curl_easy_setopt(curl, CURLOPT_READFUNCTION, requestBodyHandler);
-		// Handles the response body
-		code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBody);
-		code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, responseBodyHandler);
-
-		CURLcode res = curl_easy_perform(curl);
-
-		if (res == CURLE_OK) {
-		    long http_code = 0;
-		    curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &http_code);
-		    if (http_code != 200) {
-		        std::cerr << "Something has gone wrong with the request! (HTTP CODE) [" << http_code << "]" << std::endl
-		        << "Body [" << responseBody.str() << "]" << std::endl;
-		    }
-		} else {
-		    std::cerr << "Something went wrong during the request! (CURL ERROR)" << std::endl;
-		}
-	}
-
-	curl_slist_free_all(headers);
-	curl_easy_cleanup(curl);
+	moderationUtil.handleAudioFrames(uid, frame);
 }
 
 void ModeratorHandler::videoFrameReceived(uid_t uid, const agora::linuxsdk::VideoFrame* frame) const {
@@ -250,12 +125,4 @@ void ModeratorHandler::onConnectionLost() {
 void ModeratorHandler::onConnectionInterrupted() {
 	std::cout << "Connection interrupted" << std::endl;
 	// Should we exit?
-}
-
-ModeratorHandler::ModeratorHandler() {
-	curl_global_init(CURL_GLOBAL_DEFAULT);
-}
-
-ModeratorHandler::~ModeratorHandler() {
-	curl_global_cleanup();
 }
