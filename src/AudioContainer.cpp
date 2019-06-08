@@ -2,20 +2,22 @@
 // Created by vagrant on 6/7/19.
 //
 
-#include <iostream>
-#include <sstream>
-#include <unistd.h>
-#include <sys/stat.h>
+#include <boost/process.hpp>
 
 #include "AudioContainer.h"
 #include "base64.h"
 
-std::string AudioContainer::getFlacBase64(uid_t id) {
+namespace bp = boost::process;
 
-	std::string filename = std::to_string(id) + "_chunk.pipe";
+std::string AudioContainer::getFlacBase64(uid_t id) const {
+	bp::pstream io;
+	bp::child c("ffmpeg -f u16le -i pipe: -f flac pipe:", bp::std_out > io, bp::std_in < io);
 
-	mkfifo(filename, 0) // TODO
+	io << audio.str();
 
+	std::string out;
 
-	return std::string();
+	io >> out;
+
+	return base64_encode((const unsigned char*) out.data(), out.length());
 }

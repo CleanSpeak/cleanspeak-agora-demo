@@ -24,7 +24,7 @@ int main(int argc, char** argv) {
 	config.idleLimitSec = 3;
 
 	// Bad practice, but had to be done.
-	config.appliteDir = const_cast<char*>("/home/vagrant/CLionProjects/cleanspeak-agora-demo/bin");
+	config.appliteDir = const_cast<char*>("../bin");
 
 	auto engine = IRecordingEngine::createAgoraRecordingEngine("ebdc95b9c8924407a43dc9b6b6b3756c", &handler);
 

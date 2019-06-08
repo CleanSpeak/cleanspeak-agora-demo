@@ -7,6 +7,8 @@
 
 #include <string>
 #include <vector>
+#include <sstream>
+#include <string>
 
 #include "IAgoraLinuxSdkCommon.h"
 
@@ -29,16 +31,16 @@ struct InternalPcmFrame {
 class AudioContainer {
 	std::vector<InternalPcmFrame> buffers;
 
-	std::basic_stringbuf<unsigned char> audio;
+	std::stringstream audio;
 
 public:
 
 	void append(const agora::linuxsdk::AudioPcmFrame& pcmAudio) {
 		buffers.emplace_back(pcmAudio); // Copy the audio meta data (for debugging)
-		audio.sputn(pcmAudio.pcmBuf_, pcmAudio.pcmBufSize_);
+		audio << std::string((char*) pcmAudio.pcmBuf_, pcmAudio.pcmBufSize_);
 	}
 
-	std::string getFlacBase64(uid_t id);
+	std::string getFlacBase64(uid_t id) const;
 
 	inline size_t size() const {
 		return buffers.size();
@@ -46,7 +48,7 @@ public:
 
 	inline void clear() {
 		buffers.clear();
-		audio = std::basic_stringbuf<unsigned char>();
+		audio.str("");
 	}
 };
 

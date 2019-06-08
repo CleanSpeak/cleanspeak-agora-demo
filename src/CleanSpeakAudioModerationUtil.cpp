@@ -24,6 +24,8 @@ static boost::uuids::uuid fromInt(uid_t id) {
 	*(uuid.begin() + 13) = static_cast<uint8_t>(id >> 16) & 0xFF;
 	*(uuid.begin() + 14) = static_cast<uint8_t>(id >> 8) & 0xFF;
 	*(uuid.begin() + 15) = static_cast<uint8_t>(id >> 0) & 0xFF;
+
+	return uuid;
 }
 
 static size_t requestBodyHandler(char* ptr, size_t size, size_t nitems, std::stringbuf* body) {
