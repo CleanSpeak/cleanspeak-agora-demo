@@ -5,7 +5,6 @@
 #ifndef AGORA_CLEANSPEAK_CLEANSPEAKAUDIOMODERATIONUTIL_H
 #define AGORA_CLEANSPEAK_CLEANSPEAKAUDIOMODERATIONUTIL_H
 
-#include <vector>
 #include <unordered_map>
 
 #include "IAgoraLinuxSdkCommon.h"

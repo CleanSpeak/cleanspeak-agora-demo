@@ -5,9 +5,7 @@
 #ifndef AGORA_CLEANSPEAK_MODERATORHANDLER_H
 #define AGORA_CLEANSPEAK_MODERATORHANDLER_H
 
-#include <unordered_map>
 #include <atomic>
-#include <sstream>
 
 #include "IAgoraRecordingEngine.h"
 #include "IAgoraLinuxSdkCommon.h"

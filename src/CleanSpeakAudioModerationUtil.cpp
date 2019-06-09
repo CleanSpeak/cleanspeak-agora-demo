@@ -89,23 +89,21 @@ void CleanSpeakAudioModerationUtil::handleAudioFrames(uid_t uid, const agora::li
 
 	if (curl) {
 
-		CURLcode code;
+//		curl_easy_setopt(curl, CURLOPT_VERBOSE, true);
 
-//		code = curl_easy_setopt(curl, CURLOPT_VERBOSE, true);
-
-		code = curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
-		code = curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:8001/content/item/moderate");
-		code = curl_easy_setopt(curl, CURLOPT_POST, true);
+		curl_easy_setopt(curl, CURLOPT_HTTPHEADER, headers);
+		curl_easy_setopt(curl, CURLOPT_URL, "http://localhost:8001/content/item/moderate");
+		curl_easy_setopt(curl, CURLOPT_POST, true);
 
 		std::stringbuf responseBody;
 		std::stringbuf body(request);
 
 		// Handles the request body
-		code = curl_easy_setopt(curl, CURLOPT_READDATA, &body);
-		code = curl_easy_setopt(curl, CURLOPT_READFUNCTION, requestBodyHandler);
+		curl_easy_setopt(curl, CURLOPT_READDATA, &body);
+		curl_easy_setopt(curl, CURLOPT_READFUNCTION, requestBodyHandler);
 		// Handles the response body
-		code = curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBody);
-		code = curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, responseBodyHandler);
+		curl_easy_setopt(curl, CURLOPT_WRITEDATA, &responseBody);
+		curl_easy_setopt(curl, CURLOPT_WRITEFUNCTION, responseBodyHandler);
 
 		CURLcode res = curl_easy_perform(curl);
 
