@@ -46,11 +46,13 @@ void CleanSpeakAudioModerationUtil::handleAudioFrames(uid_t uid, const agora::li
 	UserData& userData = users[uid];
 	userData.buffers.append(*(frame->frame.pcm));
 
-	if (userData.buffers.size() < 250) {
+	if (userData.buffers.size() <
+	    frame->frame.pcm->sample_rates_ / frame->frame.pcm->samples_ * 5) { // Sample every 5 seconds
 		return;
 	}
 
-	std::string audioUrl = "data:audio/flac;base64," + userData.buffers.getFlacBase64(0);
+//	std::string audioUrl = "data:audio/flac;base64," + userData.buffers.getFlacBase64(0);
+	std::string audioUrl = "data:audio/pcm;base64," + userData.buffers.getRawBase64();
 
 	userData.buffers.clear(); // Reset for next chunk
 

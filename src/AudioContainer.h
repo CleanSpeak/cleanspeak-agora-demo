@@ -37,7 +37,9 @@ public:
 		audio.insert(audio.end(), pcmAudio.pcmBuf_, pcmAudio.pcmBuf_ + pcmAudio.pcmBufSize_);
 	}
 
-	std::string getFlacBase64(uid_t id) const;
+	std::string getFlacBase64() const;
+
+	std::string getRawBase64() const;
 
 	inline size_t size() const {
 		return buffers.size();

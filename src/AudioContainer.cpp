@@ -4,6 +4,7 @@
 
 #include <iostream>
 #include <vector>
+#include <fstream>
 
 #include <boost/process.hpp>
 #include <boost/asio/buffer.hpp>
@@ -15,7 +16,7 @@
 namespace bp = boost::process;
 namespace asio = boost::asio;
 
-std::string AudioContainer::getFlacBase64(uid_t id) const {
+std::string AudioContainer::getFlacBase64() const {
 
 	boost::filesystem::path ffmpeg = bp::search_path("ffmpeg");
 
@@ -30,7 +31,7 @@ std::string AudioContainer::getFlacBase64(uid_t id) const {
 	bp::async_pipe out(ios); // Sends data to the ffmpeg process
 	bp::async_pipe in(ios); // Reads data back from ffmpeg
 
-	bp::child c(ffmpeg, "-f", "u16le", "-ar", "48000", "-i", "pipe:0", "-f", "flac", "pipe:1", bp::std_in < out,
+	bp::child c(ffmpeg, "-f", "s16le", "-ar", "48000", "-i", "pipe:0", "-f", "flac", "pipe:1", bp::std_in < out,
 	            bp::std_out > in);
 
 	auto outBuffer = asio::buffer(audio);
@@ -56,4 +57,12 @@ std::string AudioContainer::getFlacBase64(uid_t id) const {
 	c.wait();
 
 	return base64_encode((const unsigned char*) flacData.data(), flacData.size());
+}
+
+std::string AudioContainer::getRawBase64() const {
+	std::ofstream of("/vagrant/test.pcm", std::ios_base::out | std::ios_base::app | std::ios_base::binary);
+
+	of.write((char*) audio.data(), audio.size());
+
+	return base64_encode(audio.data(), audio.size());
 }
