@@ -5,6 +5,7 @@
 #include <iostream>
 #include <vector>
 #include <fstream>
+#include <sstream>
 
 #include <boost/process.hpp>
 #include <boost/asio/buffer.hpp>
@@ -24,45 +25,35 @@ std::string AudioContainer::getFlacBase64() const {
 		throw std::runtime_error("Failed to find ffmpeg on the path! Make sure it is installed!");
 	}
 
-	std::vector<unsigned char> flacData;
+	bp::opstream out;
 
-	asio::io_service ios;
+	// Stream data to ffmpeg and save to a file. (It has to be able to seek to write the header when its done, which is not possible with a pipe)
+	bp::child c(ffmpeg, "-f", "s16le", "-ar", "48000", "-i", "pipe:0", "-f", "flac", "-y", "out.flac",
+	            bp::std_in < out);
 
-	bp::async_pipe out(ios); // Sends data to the ffmpeg process
-	bp::async_pipe in(ios); // Reads data back from ffmpeg
+	out.pipe().write((const char*) audio.data(), audio.size());
+	out.pipe().close();
 
-	bp::child c(ffmpeg, "-f", "s16le", "-ar", "48000", "-i", "pipe:0", "-f", "flac", "pipe:1", bp::std_in < out,
-	            bp::std_out > in);
-
-	auto outBuffer = asio::buffer(audio);
-	asio::async_write(out, outBuffer, [&](const boost::system::error_code& ec, std::size_t n) {
-		out.close();
-	});
-
-	std::array<unsigned char, 4096> tmpFlacData = std::array<unsigned char, 4096>();
-	auto inBuffer = asio::buffer(tmpFlacData);
-	std::function<void(const boost::system::error_code& ec, size_t)> inFunc =
-			[&](const boost::system::error_code& ec, size_t n) {
-				flacData.reserve(flacData.size() + n);
-				flacData.insert(flacData.end(), tmpFlacData.begin(), tmpFlacData.begin() + n);
-				if (!ec) {
-					asio::async_read(in, inBuffer, asio::transfer_at_least(1), inFunc);
-				} else {
-					std::cerr << "An error occurred!" << std::endl;
-				}
-			};
-	asio::async_read(in, inBuffer, asio::transfer_at_least(1), inFunc);
-
-	ios.run();
 	c.wait();
 
+	// Open the file and seek to the end
+	std::ifstream in("out.flac", std::ios_base::in | std::ios_base::binary | std::ios_base::ate);
+
+	std::vector<unsigned char> flacData;
+
+	// Get the size of the file
+	int size = in.tellg();
+	// Create a buffer for the file
+	flacData.resize(size);
+	// Seek to the beginning of the file
+	in.seekg(0);
+	// Read the whole file
+	in.read((char*) flacData.data(), size);
+
+	// Return the base64 version of the file
 	return base64_encode((const unsigned char*) flacData.data(), flacData.size());
 }
 
 std::string AudioContainer::getRawBase64() const {
-	std::ofstream of("/vagrant/test.pcm", std::ios_base::out | std::ios_base::app | std::ios_base::binary);
-
-	of.write((char*) audio.data(), audio.size());
-
 	return base64_encode(audio.data(), audio.size());
 }
