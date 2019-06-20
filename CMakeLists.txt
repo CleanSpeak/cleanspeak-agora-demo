@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 #set(CMAKE_VERBOSE_MAKEFILE ON)
 
-find_package(Boost 1.36.0 REQUIRED COMPONENTS system filesystem)
+#find_package(Boost 1.36.0 REQUIRED COMPONENTS system filesystem)
 
 add_executable(AgoraAutoModerator src/main.cpp src/ModeratorHandler.cpp src/AudioContainer.cpp src/CleanSpeakAudioModerationUtil.cpp)
 

@@ -59,7 +59,7 @@ void CleanSpeakAudioModerationUtil::handleAudioFrames(uid_t uid, const agora::li
 	// Alternatively we could use the name_generator but its a hash, and we would lose the obviousness of the user id.
 	std::string userId = to_string(fromInt(uid));
 
-	std::string applicationId = "c88755c8-7789-4b28-8f0d-180088772e55";
+	std::string applicationId = "e8f74714-7c02-41e9-9fab-82f9cb2829be";
 
 	std::string request =
 			R"(
