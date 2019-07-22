@@ -47,12 +47,13 @@ void CleanSpeakAudioModerationUtil::handleAudioFrames(uid_t uid, const agora::li
 	userData.buffers.append(*(frame->frame.pcm));
 
 	if (userData.buffers.size() <
-	    frame->frame.pcm->sample_rates_ / frame->frame.pcm->samples_ * 60) { // Sample every 60 seconds
+	    frame->frame.pcm->sample_rates_ / frame->frame.pcm->samples_ * 5) { // Sample every 60 seconds
 		return;
 	}
 
 //	std::string audioUrl = "data:audio/flac;base64," + userData.buffers.getFlacBase64();
-	std::string audioUrl = "data:audio/pcm;base64," + userData.buffers.getRawBase64();
+//	std::string audioUrl = "data:audio/pcm;base64," + userData.buffers.getRawBase64();
+	std::string audioUrl = "data:audio/wav;base64," + userData.buffers.getWaveBase64();
 
 	userData.buffers.clear(); // Reset for next chunk
 
@@ -62,8 +63,7 @@ void CleanSpeakAudioModerationUtil::handleAudioFrames(uid_t uid, const agora::li
 	std::string applicationId = "e8f74714-7c02-41e9-9fab-82f9cb2829be";
 
 	std::string request =
-			R"(
-{
+			R"({
   "content": {
     "applicationId": ")" + applicationId + R"(",
     "createInstant": )" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(

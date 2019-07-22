@@ -39,7 +39,9 @@ public:
 
 //	std::string getFlacBase64() const;
 
-	std::string getRawBase64() const;
+	std::string getWaveBase64() const;
+
+//	std::string getRawBase64() const;
 
 	inline size_t size() const {
 		return buffers.size();
